@@ -8,9 +8,9 @@ Resources:
       Runtime: nodejs8.10
       Description: Collect logs from S3, preprocess and route them with Cribl
       MemorySize: 512
-      Timeout: 10
-      CodeUri: 's3://cdn.cribl.io/repo/S3ToCribl.zip'
+      Timeout: 20
+      CodeUri: 's3://cdn.cribl.io/aws/serverless/S3LogsToCribl.zip'
       Environment:
         Variables:
-          CRIBL_URL: <enter value here>
-          CRIBL_AUTH: <enter value here>
+          CRIBL_URL: < Cribl HTTP input endpoint >
+          CRIBL_AUTH: < Cribl HTTP authToken >
