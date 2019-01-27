@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  CriblS3ToSnowflake:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs8.10
+      Description: Forward S3 notifications to Snowflake (via Snowpipe)
+      MemorySize: 256
+      Timeout: 20
+      CodeUri: 's3://cdn.cribl.io/aws/serverless/S3EventsToSnowflake.zip'
+      Environment:
+        Variables:
+          ACCOUNT: < Snowflake account >
+          USER: < Snowflake user >
+          FQ_PIPE: < Fully qualified pipe, e.g. mydb.myschema.pipe420 >
+          KEY_FINGERPRINT: < Public key fingerprint, e.g. SHA256:+SWPnk... >
+          PRIVATE_KEY: < S3 location of private key, e.g. s3://bucket/key.priv >
