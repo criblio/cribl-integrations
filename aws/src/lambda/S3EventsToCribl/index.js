@@ -38,17 +38,27 @@ const VPC_FILENAME_REGEX = /\/(\d+)_vpcflowlogs_([^_]+)_.*\.gz$/;
 //eg. 49669812345_CloudTrail_us-west-1_20181122T0000Z_cnnBR16qS5iWqbJ1.json.gz
 const CLOUDTRAIL_FILENAME_REGEX = /\/(\d+)_CloudTrail_([^_]+)_.*\.json\.gz$/;
 
+
+// e.g. 49669812345_elasticloadbalancing_us-west-1_a2bc0a431ec4011e795fa06dd8a3XXXX_20180608T2245Z_n1k52gg1.log.gz
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html#access-log-file-format
+const NLB_FILENAME_REGEX = /\/(\d+)_elasticloadbalancing_([^_]+)_([^_]+)_([^_]+)_([^_]+)\.log(\.gz)?$/;
+// e.g. tls 1.0 2018-12-20T02:59:40 net/my-network-loadbalancer/c6e77e28c25b2234 g3d4b5e8bb8464cd 72.21.218.154:51341 172.100.100.185:443 5 2 98 246 - arn:aws:acm:us-east-2:671290407336:certificate/2a108f19-aded-46b0-8493-c63eb1ef4a99 - ECDHE-RSA-AES128-SHA tlsv12 - my-network-loadbalancer-c6e77e28c25b2234.elb.us-east-2.amazonaws.com
+const NLB_PARSE_REGEX = /^([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*):([0-9]*) ([^ ]*):([0-9]*) ([-.0-9]*) ([-.0-9]*) ([-0-9]*) ([-0-9]*) ([-0-9]*) ([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*)($| [^ ]*)/;
+const NLB_FIELDS = ['type', 'version', 'timestamp', 'elb', 'listener_id', 'client_ip', 'client_port', 'target_ip', 'target_port', 'tcp_connection_time_ms', 'tls_handshake_time_ms', 'received_bytes', 'sent_bytes','incoming_tls_alert', 'cert_arn', 'cert_serial', 'tls_cipher', 'tls_protocol', 'tls_named_group', 'domain_name', 'new_field']
+
+
 // e.g.  49669812345_elasticloadbalancing_us-west-1_a2bc0a431ec4011e795fa06dd8a3XXXX_20180608T2245Z_54.187.134.00_n1k52gg1.log
 const ELB_FILENAME_REGEX = /\/(\d+)_elasticloadbalancing_([^_]+)_([^_]+)_([^_]+)_([^_]+)_.*\.log(\.gz)?$/;
 //e.g. 2018-11-07T02:35:07.838294Z a2bc0a431ec4011e795fa06DDD3XXXX 173.212.254.88:53730 172.20.58.242:30606 0.000549 0.00001 0.000012 - - 98 423 "- - - " "-" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2
-const ELB_PARSE_REGEX = /^(\d\S+)\s+(\S+)\s+([\d.]+):(\d+)\s+([\d.]+):(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d-]+)\s+([\d-]+)\s+(\d+)\s+(\d+)\s+"([^"]+)"\s+"([^"]+)"\s+([-\w]+)\s+([-\w.]+)$/;
+//e.g. 2015-05-13T23:39:43.945958Z my-loadbalancer 192.168.131.39:2817 10.0.0.1:80 0.000086 0.001048 0.001337 200 200 0 57 "GET https://www.example.com:443/ HTTP/1.1" "curl/7.38.0" DHE-RSA-AES128-SHA TLSv1.2
+const ELB_PARSE_REGEX = /^([^ ]*) ([^ ]*) ([^ ]*):([0-9]*) ([^ ]*)[:-]([0-9]*) ([-.0-9]*) ([-.0-9]*) ([-.0-9]*) (|[-0-9]*) (-|[-0-9]*) ([-0-9]*) ([-0-9]*) \"([^ ]*) ([^ ]*) (- |[^ ]*)\" \"([^\"]*)\" ([A-Z0-9-]+) ([A-Za-z0-9.-]*)$/;
 // from: https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html?icmpid=docs_elb_console
-const ELB_FIELDS = ['timestamp', 'elb', 'client_ip', 'client_port', 'backend_ip', 'backend_port', 'request_processing_time', 'backend_processing_time', 'response_processing_time', 'elb_status_code', 'backend_status_code', 'received_bytes', 'sent_bytes', 'request', 'user_agent', 'ssl_cipher', 'ssl_protocol'];
+const ELB_FIELDS = ['timestamp', 'elb', 'client_ip', 'client_port', 'target_ip', 'target_port', 'request_processing_time', 'target_processing_time', 'response_processing_time', 'elb_status_code', 'backend_status_code', 'received_bytes', 'sent_bytes', 'request_verb', 'request_url', 'request_proto', 'user_agent', 'tls_cipher', 'tls_protocol'];
 
 // e.g https 2018-07-02T22:23:00.186641Z app/my-loadbalancer/50dc6c495c0c9188 192.168.131.39:2817 10.0.0.1:80 0.086 0.048 0.037 200 200 0 57 "GET https://www.example.com:443/ HTTP/1.1" "curl/7.46.0" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-targets/73e2d6bc24d8a067 "Root=1-58337281-1d84f3d73c47ec4e58577259" "www.example.com" "arn:aws:acm:us-east-2:123456789012:certificate/12345678-1234-1234-1234-123456789012" 1 2018-07-02T22:22:48.364000Z "authenticate,forward" "-"
 const ALB_PARSE_REGEX = /([^ ]*) ([^ ]*) ([^ ]*) ([^ ]*):([0-9]*) ([^ ]*)[:-]([0-9]*) ([-.0-9]*) ([-.0-9]*) ([-.0-9]*) (|[-0-9]*) (-|[-0-9]*) ([-0-9]*) ([-0-9]*) \"([^ ]*) ([^ ]*) (- |[^ ]*)\" \"([^\"]*)\" ([A-Z0-9-]+) ([A-Za-z0-9.-]*) ([^ ]*) \"([^\"]*)\" \"([^\"]*)\" \"([^\"]*)\" ([-.0-9]*) ([^ ]*) \"([^\"]*)\" \"([^\"]*)\"($| \"[^ ]*\")/;
 // from: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html
-const ALB_FIELDS = ['type', 'timestamp', 'elb', 'client_ip', 'client_port', 'target_ip', 'target_port', 'request_processing_time', 'target_processing_time', 'response_processing_time', 'elb_status_code', 'target_status_code', 'received_bytes', 'sent_bytes', 'request_verb', 'request_url', 'request_proto', 'user_agent', 'ssl_cipher', 'ssl_protocol', 'target_group_arn', 'trace_id', 'domain_name', 'chosen_cert_arn', 'matched_rule_priority', 'request_creation_time', 'actions_executed', 'redirect_url', 'error_reason'];
+const ALB_FIELDS = ['type', 'timestamp', 'elb', 'client_ip', 'client_port', 'target_ip', 'target_port', 'request_processing_time', 'target_processing_time', 'response_processing_time', 'elb_status_code', 'target_status_code', 'received_bytes', 'sent_bytes', 'request_verb', 'request_url', 'request_proto', 'user_agent', 'tls_cipher', 'tls_protocol', 'target_group_arn', 'trace_id', 'domain_name', 'chosen_cert_arn', 'matched_rule_priority', 'request_creation_time', 'actions_executed', 'redirect_url', 'error_reason'];
 
 
 // eg. E1VXRJJS5KC0JK.2018-11-20-23.0128d8dc.gz
@@ -144,6 +154,38 @@ function parseEvents(fullKey, buf) {
           event.origin = 'lambda:cloudfrontlogs';
           events.push(event);
         }
+      }
+      return events;
+    }
+
+    if(NLB_FILENAME_REGEX.test(fullKey)) {
+      const match = NLB_FILENAME_REGEX.exec(fullKey);
+      const region = match[2];
+      const origin = 'lambda:elb';
+      const source = fullKey;
+      const timestampIdx = 2;
+      const fields = NLB_FIELDS;
+
+      const lines = data.toString().split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const _raw = lines[i].trim();
+        if (_raw.length === 0) 
+          continue;
+        const e = { _raw, origin, source, region };
+        const m = NLB_PARSE_REGEX.exec(_raw);
+        if (m) {
+          const tParts = m[timestampIdx + 1].split('.');
+          // handle parsing of more than just milliseconds manually
+          e._time = Date.parse(`${tParts[0]}Z`) / 1000;
+          if(tParts.length > 1)
+            e._time += Number(`0.${tParts[1].substr(0, tParts[1].length - 1)}`);
+          for (let k = 0; k < fields.length && k < m.length; k++) {
+            if (k !== timestampIdx) {
+              e[fields[k]] = asNumberIfPossible(m[k + 1]);
+            }
+          }
+        }
+        events.push(e);
       }
       return events;
     }
@@ -294,4 +336,3 @@ exports.handler = (event, context, callback) => {
   Promise.all(proms)
     .then(() => callback(), callback);
 };
-
